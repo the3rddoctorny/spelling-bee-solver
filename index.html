@@ -43,65 +43,69 @@
     let dictionary = [];
     const statusDiv = document.getElementById('status');
 
-    // Switching to a "Common Words" list (approx 10,000 frequent words)
-    // Using a more robust 20,000 word list to ensure we catch Pangrams
-    fetch('https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english-no-swears-medium.txt')
-        .then(response => response.text())
+    // Using the 20,000 most common words list
+    // This is the "Goldilocks" list: not too simple, not too trashy.
+    const dictionaryUrl = 'https://raw.githubusercontent.com/first20hours/google-10000-english/master/20k.txt';
+
+    fetch(dictionaryUrl)
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.text();
+        })
         .then(text => {
-            // We'll also filter out any weird 1-3 letter artifacts that might be in the list
             dictionary = text.split('\n')
                              .map(w => w.trim().toLowerCase())
-                             .filter(w => w.length >= 4); 
-            statusDiv.innerText = "Better Dictionary Loaded! Ready to solve.";
+                             .filter(w => w.length >= 4);
+            statusDiv.innerText = "20,000 words loaded. Ready to find Pangrams!";
         })
+        .catch(err => {
+            statusDiv.innerText = "Error loading dictionary. Check console.";
+            console.error("Fetch error:", err);
+        });
 
     function solve() {
-        const center = document.getElementById('center').value.toLowerCase();
-        const outer = document.getElementById('outer').value.toLowerCase();
+        const center = document.getElementById('center').value.toLowerCase().trim();
+        const outer = document.getElementById('outer').value.toLowerCase().trim();
         const resultsDiv = document.getElementById('results');
         
         if (!center || outer.length < 6) {
-            alert("Need a center letter and 6 others!");
+            alert("Enter 1 center letter and 6 outer letters.");
             return;
         }
 
         const allowedLetters = (center + outer).split('');
         resultsDiv.innerHTML = "";
 
-        // The Filtering Logic
         const matches = dictionary.filter(word => {
-            // Rule 1: Min 4 letters
-            if (word.length < 4) return false;
-            // Rule 2: Must have center letter
             if (!word.includes(center)) return false;
-            // Rule 3: Only use the allowed 7 letters
             return word.split('').every(char => allowedLetters.includes(char));
         });
 
         if (matches.length === 0) {
-            statusDiv.innerText = "No common words found. Maybe check your letters?";
+            statusDiv.innerText = "No matches found in the 20k list.";
             return;
         }
 
-        statusDiv.innerText = `Found ${matches.length} likely words:`;
+        statusDiv.innerText = `Found ${matches.length} possible words:`;
 
-        // Sort by length (longest first)
+        // Sort: Longest words (and Pangrams) first
         matches.sort((a, b) => b.length - a.length).forEach(word => {
             const span = document.createElement('span');
             span.className = 'word';
             
-            // Check for Pangram (uses all 7 unique letters)
-            const uniqueCount = new Set(word.split('')).size;
-            if (uniqueCount === 7) {
+            const uniqueLetters = new Set(word.split(''));
+            // Rule: Pangram must use exactly 7 unique letters
+            if (uniqueLetters.size === 7) {
                 span.classList.add('pangram');
                 span.innerText = word.toUpperCase() + " (Pangram!) 🏆";
+                resultsDiv.prepend(span); // Put pangrams at the very top
             } else {
                 span.innerText = word.toUpperCase();
+                resultsDiv.appendChild(span);
             }
-            
-            resultsDiv.appendChild(span);
         });
     }
 </script>
+
 </body>
 </html>
