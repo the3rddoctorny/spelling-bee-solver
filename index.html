@@ -41,48 +41,61 @@
 
 <script>
     let dictionary = [];
+    const statusDiv = document.getElementById('status');
 
-    // Fetching a standard English word list (approx 100k words)
-    fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt')
+    // Switching to a "Common Words" list (approx 10,000 frequent words)
+    // This removes the "shit words" and obscure dictionary entries.
+    fetch('https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english-no-swears.txt')
         .then(response => response.text())
         .then(text => {
             dictionary = text.split('\n').map(w => w.trim().toLowerCase());
-            document.getElementById('status').innerText = "Dictionary Ready!";
+            statusDiv.innerText = "Ready to solve (Common Words Loaded)";
+        })
+        .catch(err => {
+            statusDiv.innerText = "Error loading dictionary.";
+            console.error(err);
         });
 
     function solve() {
         const center = document.getElementById('center').value.toLowerCase();
         const outer = document.getElementById('outer').value.toLowerCase();
         const resultsDiv = document.getElementById('results');
-        const statusDiv = document.getElementById('status');
         
         if (!center || outer.length < 6) {
-            alert("Please enter the center letter and all 6 outer letters.");
+            alert("Need a center letter and 6 others!");
             return;
         }
 
-        const allowedLetters = center + outer;
+        const allowedLetters = (center + outer).split('');
         resultsDiv.innerHTML = "";
 
+        // The Filtering Logic
         const matches = dictionary.filter(word => {
+            // Rule 1: Min 4 letters
             if (word.length < 4) return false;
+            // Rule 2: Must have center letter
             if (!word.includes(center)) return false;
-            
-            // Check if word contains ONLY the allowed letters
+            // Rule 3: Only use the allowed 7 letters
             return word.split('').every(char => allowedLetters.includes(char));
         });
 
-        statusDiv.innerText = `Found ${matches.length} possible words:`;
+        if (matches.length === 0) {
+            statusDiv.innerText = "No common words found. Maybe check your letters?";
+            return;
+        }
 
+        statusDiv.innerText = `Found ${matches.length} likely words:`;
+
+        // Sort by length (longest first)
         matches.sort((a, b) => b.length - a.length).forEach(word => {
             const span = document.createElement('span');
             span.className = 'word';
             
-            // Highlight Pangrams (uses all 7 letters)
-            const uniqueLetters = new Set(word.split(''));
-            if (uniqueLetters.size === 7) {
+            // Check for Pangram (uses all 7 unique letters)
+            const uniqueCount = new Set(word.split('')).size;
+            if (uniqueCount === 7) {
                 span.classList.add('pangram');
-                span.innerText = word.toUpperCase() + " (Pangram!)";
+                span.innerText = word.toUpperCase() + " (Pangram!) 🏆";
             } else {
                 span.innerText = word.toUpperCase();
             }
@@ -91,6 +104,5 @@
         });
     }
 </script>
-
 </body>
 </html>
