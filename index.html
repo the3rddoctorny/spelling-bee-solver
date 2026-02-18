@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spelling Bee Solver</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; line-height: 1.6; background-color: #f4f4f9; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        button { background: #f7da21; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px; width: 100%; font-size: 16px; }
+        button:hover { background: #e5c81d; }
+        #results { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .word { padding: 5px 10px; background: #eee; border-radius: 15px; font-size: 14px; }
+        .pangram { background: #f7da21; font-weight: bold; border: 1px solid #d4b810; }
+        .status { font-style: italic; color: #666; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Bee Solver 🐝</h2>
+    
+    <div class="input-group">
+        <label>Center Letter (Required in every word)</label>
+        <input type="text" id="center" maxlength="1" placeholder="e.g. A" style="text-align: center; text-transform: uppercase;">
+    </div>
+
+    <div class="input-group">
+        <label>Outer Letters (The other 6)</label>
+        <input type="text" id="outer" maxlength="6" placeholder="e.g. BCGHIK" style="text-transform: uppercase;">
+    </div>
+
+    <button onclick="solve()">Find Words</button>
+    
+    <div id="status" class="status">Loading dictionary...</div>
+    <div id="results"></div>
+</div>
+
+<script>
+    let dictionary = [];
+
+    // Fetching a standard English word list (approx 100k words)
+    fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt')
+        .then(response => response.text())
+        .then(text => {
+            dictionary = text.split('\n').map(w => w.trim().toLowerCase());
+            document.getElementById('status').innerText = "Dictionary Ready!";
+        });
+
+    function solve() {
+        const center = document.getElementById('center').value.toLowerCase();
+        const outer = document.getElementById('outer').value.toLowerCase();
+        const resultsDiv = document.getElementById('results');
+        const statusDiv = document.getElementById('status');
+        
+        if (!center || outer.length < 6) {
+            alert("Please enter the center letter and all 6 outer letters.");
+            return;
+        }
+
+        const allowedLetters = center + outer;
+        resultsDiv.innerHTML = "";
+
+        const matches = dictionary.filter(word => {
+            if (word.length < 4) return false;
+            if (!word.includes(center)) return false;
+            
+            // Check if word contains ONLY the allowed letters
+            return word.split('').every(char => allowedLetters.includes(char));
+        });
+
+        statusDiv.innerText = `Found ${matches.length} possible words:`;
+
+        matches.sort((a, b) => b.length - a.length).forEach(word => {
+            const span = document.createElement('span');
+            span.className = 'word';
+            
+            // Highlight Pangrams (uses all 7 letters)
+            const uniqueLetters = new Set(word.split(''));
+            if (uniqueLetters.size === 7) {
+                span.classList.add('pangram');
+                span.innerText = word.toUpperCase() + " (Pangram!)";
+            } else {
+                span.innerText = word.toUpperCase();
+            }
+            
+            resultsDiv.appendChild(span);
+        });
+    }
+</script>
+
+</body>
+</html>
