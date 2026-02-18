@@ -40,70 +40,83 @@
 </div>
 
 <script>
-    let dictionary = [];
+    let bigDictionary = [];
+    let commonWords = new Set();
     const statusDiv = document.getElementById('status');
 
-    // Using the 20,000 most common words list
-    // This is the "Goldilocks" list: not too simple, not too trashy.
-    const dictionaryUrl = 'https://raw.githubusercontent.com/first20hours/google-10000-english/master/20k.txt';
+    // Load BOTH lists for the best results
+    async function loadDictionaries() {
+        try {
+            statusDiv.innerText = "Loading dictionaries...";
+            
+            // 1. The "Common" list (for highlighting)
+            const commonRes = await fetch('https://raw.githubusercontent.com/first20hours/google-10000-english/master/20k.txt');
+            const commonText = await commonRes.text();
+            commonWords = new Set(commonText.split('\n').map(w => w.trim().toLowerCase()));
 
-    fetch(dictionaryUrl)
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.text();
-        })
-        .then(text => {
-            dictionary = text.split('\n')
-                             .map(w => w.trim().toLowerCase())
-                             .filter(w => w.length >= 4);
-            statusDiv.innerText = "20,000 words loaded. Ready to find Pangrams!";
-        })
-        .catch(err => {
-            statusDiv.innerText = "Error loading dictionary. Check console.";
-            console.error("Fetch error:", err);
-        });
+            // 2. The "Full" dictionary (to ensure no Pangram is missed)
+            const fullRes = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt');
+            const fullText = await fullRes.text();
+            bigDictionary = fullText.split('\n').map(w => w.trim().toLowerCase());
+
+            statusDiv.innerText = "Full Dictionary Ready! Nothing will be missed.";
+        } catch (err) {
+            statusDiv.innerText = "Error loading lists.";
+            console.error(err);
+        }
+    }
+
+    loadDictionaries();
 
     function solve() {
         const center = document.getElementById('center').value.toLowerCase().trim();
         const outer = document.getElementById('outer').value.toLowerCase().trim();
         const resultsDiv = document.getElementById('results');
         
-        if (!center || outer.length < 6) {
-            alert("Enter 1 center letter and 6 outer letters.");
-            return;
-        }
+        if (!center || outer.length < 6) return;
 
         const allowedLetters = (center + outer).split('');
         resultsDiv.innerHTML = "";
 
-        const matches = dictionary.filter(word => {
+        const matches = bigDictionary.filter(word => {
+            if (word.length < 4) return false;
             if (!word.includes(center)) return false;
             return word.split('').every(char => allowedLetters.includes(char));
         });
 
-        if (matches.length === 0) {
-            statusDiv.innerText = "No matches found in the 20k list.";
-            return;
-        }
+        // Sort: Pangrams first, then by length
+        matches.sort((a, b) => {
+            const aP = new Set(a.split('')).size === 7;
+            const bP = new Set(b.split('')).size === 7;
+            if (aP && !bP) return -1;
+            if (!aP && bP) return 1;
+            return b.length - a.length;
+        });
 
-        statusDiv.innerText = `Found ${matches.length} possible words:`;
-
-        // Sort: Longest words (and Pangrams) first
-        matches.sort((a, b) => b.length - a.length).forEach(word => {
+        matches.forEach(word => {
             const span = document.createElement('span');
             span.className = 'word';
-            
-            const uniqueLetters = new Set(word.split(''));
-            // Rule: Pangram must use exactly 7 unique letters
-            if (uniqueLetters.size === 7) {
+            const isPangram = new Set(word.split('')).size === 7;
+            const isCommon = commonWords.has(word);
+
+            // Styling logic
+            if (isPangram) {
                 span.classList.add('pangram');
                 span.innerText = word.toUpperCase() + " (Pangram!) 🏆";
-                resultsDiv.prepend(span); // Put pangrams at the very top
             } else {
                 span.innerText = word.toUpperCase();
-                resultsDiv.appendChild(span);
             }
+
+            // Dim words that are likely "junk" (not in the common list)
+            if (!isCommon && !isPangram) {
+                span.style.opacity = "0.4";
+                span.style.fontSize = "12px";
+            }
+
+            resultsDiv.appendChild(span);
         });
+
+        statusDiv.innerText = `Found ${matches.length} words. (Bright = Likely, Dim = Obscure)`;
     }
 </script>
 
